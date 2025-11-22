@@ -1,0 +1,966 @@
+#auth-view {
+    min-height: 100vh;
+    background-color: var(--background-color); 
+    display: flex;
+    flex-direction: column;
+}
+
+.auth-main {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px 15px;
+}
+
+.app-logo-name {
+    display: flex; 
+    align-items: center; 
+    gap: 10px;
+}
+
+.auth-content-wrapper {
+    display: flex;
+    background: var(--card-background);
+    border-radius: 12px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.15); /* More prominent shadow for the box */
+    max-width: 900px;
+    width: 100%;
+    overflow: hidden; /* Ensures image and card don't spill outside */
+    min-height: 500px;
+}
+
+/* --- Image Container (Left Column) --- */
+.auth-image-container {
+    flex: 1; /* Takes up one part of the flexible space */
+    position: relative;
+    overflow: hidden;
+    display: none; /* Hide by default on mobile */
+}
+
+.auth-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.auth-image:hover {
+    transform: scale(1.03); /* Slight hover effect on the image */
+}
+
+.image-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 20px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
+    color: white;
+    text-align: center;
+}
+
+.image-overlay h3 {
+    margin: 0 0 5px 0;
+    font-size: 1.5rem;
+}
+
+.image-overlay p {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+/* --- Form Container (Right Column) --- */
+.auth-card-container {
+    flex: 1; /* Takes up one part of the flexible space */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.auth-card {
+    background: transparent; /* Card background is now handled by wrapper */
+    padding: 0;
+    border-radius: 0;
+    box-shadow: none; /* No shadow needed here */
+    width: 100%;
+    max-width: 350px;
+    text-align: center;
+}
+
+#auth-title {
+    color: var(--primary-color);
+    margin-bottom: 25px;
+    font-size: 2.2rem; /* Larger, more welcoming title */
+    font-weight: 700;
+}
+
+/* Ensure buttons inside auth forms use primary styling */
+#login-form button, #signup-form button {
+    width: 100%;
+    margin-top: 10px;
+    padding: 14px 20px; /* Taller button for emphasis */
+    font-size: 1.1rem;
+    letter-spacing: 0.5px;
+}
+
+.switch-auth {
+    margin-top: 25px; /* More spacing */
+    font-size: 1rem;
+    color: var(--light-text-color);
+}
+
+.switch-auth a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 700; 
+}
+
+/* --- Mobile View: Single Column with Image Hidden --- */
+@media (min-width: 768px) {
+    /* Show image on tablets and desktops */
+    .auth-image-container {
+        display: block; 
+    }
+}
+
+/* Ensure inputs and textareas look modern */
+input[type="text"], input[type="email"], input[type="password"] {
+    padding: 14px 15px; /* Taller inputs */
+    font-size: 1.05rem;
+}
+
+/* Universal Reset and Defaults */
+:root {
+    /* Light Mode Palette (Default) */
+    --primary-color: #007AFF; /* A clean, modern blue for accents */
+    --secondary-color: #34C759; /* Green for success/post button */
+    --background-color: #F8F9FA; /* Light grey/off-white background */
+    --card-background: #ffffff;
+    --text-color: #1C1C1E; /* Dark charcoal for high contrast */
+    --light-text-color: #8E8E93; /* Subtle text for time/secondary info */
+    --border-color: #E5E5EA; /* Very light grey border */
+    --shadow-subtle: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.05); /* Soft, modern shadow */
+    --red-color: #FF3B30; /* System red for like/delete */
+    --mobile-width: 600px;
+}
+
+/* Dark Mode Palette */
+body.dark-mode {
+    --primary-color: #0A84FF; /* Slightly brighter blue for dark background */
+    --secondary-color: #30D158;
+    --background-color: #1C1C1E; /* Dark background */
+    --card-background: #2C2C2E; /* Slightly lighter dark for cards */
+    --text-color: #FFFFFF; /* White text */
+    --light-text-color: #98989E; /* Subtle grey text */
+    --border-color: #3A3A3C; /* Dark grey border */
+    --shadow-subtle: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+    --red-color: #FF453A;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    line-height: 1.5;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 15px;
+}
+
+/* --- Utility Buttons and Inputs --- */
+
+input[type="text"], input[type="email"], input[type="password"], input[type="url"], textarea, .search-bar, select, button {
+    font-family: inherit;
+    font-size: 1rem;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+input[type="text"], input[type="email"], input[type="password"], input[type="url"], textarea, .search-bar, select {
+    width: 100%;
+    padding: 12px 15px;
+    margin-bottom: 15px;
+    border: 1px solid var(--border-color);
+    background-color: var(--card-background);
+    color: var(--text-color);
+}
+
+input:focus, textarea:focus {
+    border-color: var(--primary-color);
+    outline: none;
+    box-shadow: 0 0 0 2px var(--primary-color, 0.2);
+}
+
+textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+button {
+    padding: 10px 20px;
+    cursor: pointer;
+    font-weight: 600;
+    border: none;
+    font-size: 0.95rem;
+}
+
+.primary-btn {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.primary-btn:hover {
+    background-color: color-mix(in srgb, var(--primary-color), black 10%);
+}
+
+.secondary-btn {
+    background-color: var(--border-color);
+    color: var(--text-color);
+}
+
+.secondary-btn:hover {
+    background-color: color-mix(in srgb, var(--border-color), black 5%);
+}
+
+button:active {
+    transform: scale(0.99);
+}
+
+
+/* Header & Layout */
+header {
+    background-color: var(--card-background);
+    border-bottom: 1px solid var(--border-color);
+    padding: 15px 0;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.logo {
+    color: var(--primary-color);
+    font-size: 1.6rem;
+    font-weight: 700;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    font-size: 0.9rem;
+}
+
+#welcome-user {
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+main {
+    padding: 30px 0;
+}
+
+h2 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: 20px;
+}
+
+
+.post-image-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.custom-file-upload {
+    display: inline-block;
+    padding: 8px 15px;
+    background-color: var(--secondary-color, #555);
+    color: #fff;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.3s;
+}
+
+.custom-file-upload:hover {
+    background-color: var(--secondary-color-hover, #333);
+}
+
+.primary-btn {
+    margin: 0;
+}
+
+/* --- Section Styling --- */
+.post-creator-section, .posts-feed {
+    background: var(--card-background);
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: var(--shadow-subtle);
+    margin-bottom: 25px;
+    margin-top: 35px;
+}
+
+.controls-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    padding: 15px 25px;
+    background: var(--card-background); /* Keep control section separate */
+    border-radius: 12px;
+    box-shadow: var(--shadow-subtle);
+    margin-bottom: 25px;
+}
+
+.filter-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#search-input {
+    flex-grow: 1;
+    margin-bottom: 0;
+    padding: 10px 15px;
+}
+
+select {
+    width: auto;
+    appearance: none;
+    background-repeat: no-repeat;
+    background-position: right 10px top 50%;
+    background-size: 0.5em auto;
+    padding-right: 30px;
+    background-image: url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' width='292.4' height='292.4' viewBox='0 0 292.4 292.4'>\
+<path fill='%231C1C1E' d='M287 197.8L146.2 57.1 5.4 197.8h281.6z'/>\
+</svg>");
+}
+
+/* Dark Mode Arrow */
+body.dark-mode select {
+    background-image: url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' width='292.4' height='292.4' viewBox='0 0 292.4 292.4'>\
+<path fill='%23FFFFFF' d='M287 197.8L146.2 57.1 5.4 197.8h281.6z'/>\
+</svg>");
+}
+
+
+/* ========================= */
+/* Dark Mode Toggle */
+/* ========================= */
+.theme-switch-container {
+    display: flex;
+    align-items: center;
+}
+
+.theme-switch {
+    display: none;
+}
+
+.theme-switch-label {
+    display: block;
+    cursor: pointer;
+    width: 45px;
+    height: 25px;
+    border-radius: 50px;
+    background: var(--border-color);
+    position: relative;
+    transition: background-color 0.3s;
+}
+
+.theme-switch-label i {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.9em;
+    transition: opacity 0.3s, transform 0.3s;
+}
+
+/* Sun (Light Mode) */
+.theme-switch-label .fa-sun {
+    left: 4px;
+    color: var(--text-color);
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+}
+
+/* Moon (Dark Mode) */
+.theme-switch-label .fa-moon {
+    right: 4px;
+    color: var(--card-background);
+    opacity: 0;
+    transform: translateY(-50%) scale(0);
+}
+
+/* When checked (Dark Mode) */
+.theme-switch:checked + .theme-switch-label {
+    background: var(--primary-color);
+}
+
+.theme-switch:checked + .theme-switch-label .fa-sun {
+    opacity: 0;
+    transform: translateY(-50%) scale(0);
+}
+
+.theme-switch:checked + .theme-switch-label .fa-moon {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+}
+
+/* Slider dot */
+.theme-switch-label::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 19px;
+    height: 19px;
+    background: var(--card-background);
+    border-radius: 50%;
+    transition: transform 0.3s;
+}
+
+.theme-switch:checked + .theme-switch-label::after {
+    transform: translateX(20px);
+}
+
+/* ========================= */
+/* Emoji Picker Styling (No Change) */
+/* ========================= */
+.emoji-picker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    padding: 5px 0;
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.emoji-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--light-text-color);
+}
+
+.emoji-option {
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: transform 0.1s;
+}
+
+.emoji-option:hover {
+    transform: scale(1.2);
+}
+
+
+/* ========================= */
+/* Post Card Styling */
+/* ========================= */
+.post-card {
+    padding: 20px;
+    margin-bottom: 15px;
+    border-radius: 12px;
+    background-color: var(--card-background);
+    box-shadow: var(--shadow-subtle);
+    border: 1px solid var(--border-color);
+}
+
+.post-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.post-author {
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.post-time {
+    font-size: 0.8rem;
+    color: var(--light-text-color);
+}
+
+.post-content p {
+    margin-bottom: 15px;
+    white-space: pre-wrap;
+    word-break: break-word; /* Ensure long words wrap */
+}
+
+.post-image {
+    width: 400px; /* Fixed common size */
+    height: 400px; /* Square like Instagram */
+    object-fit: cover; /* Keep aspect ratio and crop overflow */
+    display: block;
+    margin: 0 auto 15px auto; /* Center the image */
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    cursor: pointer; /* Indicate it's clickable */
+    transition: transform 0.2s;
+}
+
+.post-image:hover {
+    transform: scale(1.02);
+}
+
+.post-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color);
+}
+
+/* Action Buttons (Like, Comment, Share) */
+.action-buttons-group {
+    display: flex;
+    gap: 15px;
+}
+
+.like-button, .comment-button, .share-button {
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--light-text-color);
+    padding: 5px 10px;
+}
+
+.like-button:hover, .comment-button:hover, .share-button:hover {
+    color: var(--primary-color);
+}
+
+.like-button.liked {
+    color: var(--red-color);
+}
+
+.like-button.liked i {
+    animation: pulse 0.3s ease-in-out;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+.owner-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.edit-button, .delete-button {
+    background: none;
+    border: none;
+    padding: 5px 10px;
+    font-size: 0.95rem;
+    color: var(--light-text-color);
+}
+
+.edit-button { color: var(--primary-color); }
+.delete-button { color: var(--red-color); }
+
+.edit-button:hover { color: color-mix(in srgb, var(--primary-color), black 10%); }
+.delete-button:hover { color: color-mix(in srgb, var(--red-color), black 10%); }
+
+
+/* ========================= */
+/* Modals (Edit & Comment) */
+/* ========================= */
+.modal {
+    position: fixed;
+    z-index: 20;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    overflow-y: auto; /* Allow scrolling for modal content */
+}
+
+.modal-content {
+    background-color: var(--card-background);
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+    width: 90%;
+    max-width: 550px;
+    margin: 50px auto; /* Add margin for breathing room on mobile */
+}
+
+.modal-content h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: var(--text-color);
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+/* Comment Modal specific styles */
+#comment-post-container {
+    padding: 15px;
+    background: var(--background-color);
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+    max-height: 200px;
+    overflow: hidden;
+    position: relative;
+    font-size: 0.9rem;
+}
+
+#comment-post-container::after {
+    content: '...';
+    position: absolute;
+    bottom: 0;
+    right: 5px;
+    background: linear-gradient(to top, var(--background-color), transparent);
+    color: var(--text-color);
+}
+
+#comment-post-container p {
+    margin-bottom: 0;
+}
+
+.comment-card {
+    padding: 10px 0;
+    border-bottom: 1px dotted var(--border-color);
+    font-size: 0.9rem;
+}
+
+.comment-card:last-child {
+    border-bottom: none;
+}
+
+.comment-author {
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-right: 10px;
+}
+
+.comment-time {
+    font-size: 0.75rem;
+    color: var(--light-text-color);
+}
+
+.comment-text {
+    margin-top: 5px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.comments-list {
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 10px;
+    margin-top: 20px;
+}
+
+/* ========================= */
+/* Mobile Responsiveness (Updated) */
+/* ========================= */
+@media (max-width: 600px) {
+    header {
+        padding: 10px 0;
+    }
+    
+    .header-content {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .header-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .user-info {
+        gap: 10px;
+    }
+
+    .controls-section {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filter-controls {
+        justify-content: space-between;
+        width: 100%;
+    }
+
+    #search-input {
+        margin-bottom: 10px;
+    }
+
+    .post-actions {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .owner-actions {
+        width: 100%;
+        justify-content: space-around;
+        gap: 0;
+    }
+
+    .action-buttons-group {
+        width: 100%;
+        justify-content: space-around;
+        gap: 0;
+    }
+
+    .like-button, .comment-button, .share-button, .edit-button, .delete-button {
+        padding: 5px;
+    }
+}
+
+/* ===== Logout Modal ===== */
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.55);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 5000;
+}
+
+.modal-box {
+    background: #fff;
+    width: 350px;
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    animation: fadeIn 0.25s ease-out;
+}
+
+body.dark-mode .modal-box {
+    background: #2a2a2a;
+    color: white;
+}
+
+.modal-actions {
+    margin-top: 20px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.logout-btn {
+    background: #ff4d4d;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 6px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.cancel-btn {
+    background: #555;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+}
+
+/* Smooth Animation */
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* ========================= */
+/* Comment Section Styling */
+/* ========================= */
+.comments-section {
+    margin-top: 15px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 10px;
+}
+
+.comments-list {
+    max-height: 150px;
+    overflow-y: auto;
+    margin-bottom: 10px;
+}
+
+.comment-card {
+    padding: 8px 0;
+    border-bottom: 1px dotted var(--border-color);
+    font-size: 0.9rem;
+}
+
+.comment-card:last-child {
+    border-bottom: none;
+}
+
+.comment-author {
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-right: 8px;
+}
+
+.comment-text {
+    display: inline;
+    color: var(--text-color);
+}
+.comment-input {
+    width: calc(100% - 80px);
+    padding: 8px;
+    margin-right: 5px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+.add-comment-form {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.post-modal-content {
+    display: flex;
+    flex-direction: column;
+    max-width: 800px;
+    width: 90%;
+    padding: 20px;
+}
+
+.modal-post-image-container {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+#modal-post-image {
+    width: 400px;
+    height: 400px;
+    object-fit: cover;
+    border-radius: 12px;
+}
+
+.modal-post-details {
+    width: 100%;
+}
+
+#close-post-modal {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-color);
+}
+
+.app-footer {
+    background-color: var(--card-background);
+    border-top: 1px solid var(--border-color);
+    padding: 15px 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    font-size: 0.9rem;
+    color: var(--light-text-color);
+}
+
+.footer-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    max-width: 900px;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.footer-left, .footer-center, .footer-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.footer-left button, .footer-center select {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.footer-left button.primary-btn {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.footer-left button.secondary-btn {
+    background-color: var(--border-color);
+    color: var(--text-color);
+}
+
+.footer-center select {
+    border: 1px solid var(--border-color);
+    background-color: var(--card-background);
+    color: var(--text-color);
+}
+
+.footer-time {
+    font-weight: 500;
+}
+
+.footer-dark-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+body.dark-mode .app-footer {
+    background-color: var(--card-background);
+    color: var(--light-text-color);
+}
