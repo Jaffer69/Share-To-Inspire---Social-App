@@ -1,925 +1,903 @@
-// =================================================================
-// Global Variables and LocalStorage Initialization 🚀
-// =================================================================
+// ===== Configuration & Constants =====
+        const CONFIG = {
+            STORAGE_KEYS: {
+                USERS: 'shareToInspire_users',
+                CURRENT_USER: 'shareToInspire_currentUser',
+                POSTS: 'shareToInspire_posts',
+                THEME: 'shareToInspire_theme'
+            }
+        };
 
-// Local storage keys
-const LS_USERS_KEY = 'miniSocial_users';
-const LS_LOGGED_IN_KEY = 'miniSocial_loggedInUser';
-const LS_POSTS_KEY = 'miniSocial_posts';
-const LS_THEME_KEY = 'miniSocial_theme';
+        // ===== State Management =====
+        class AppState {
+            constructor() {
+                this.users = this.loadFromStorage(CONFIG.STORAGE_KEYS.USERS) || [];
+                this.currentUser = this.loadFromStorage(CONFIG.STORAGE_KEYS.CURRENT_USER);
+                this.posts = this.loadFromStorage(CONFIG.STORAGE_KEYS.POSTS) || [];
+                this.theme = this.loadFromStorage(CONFIG.STORAGE_KEYS.THEME) || 'light';
+                this.filters = {
+                    search: '',
+                    sort: 'latest'
+                };
+            }
 
-// Get or initialize data from localStorage
-let users = JSON.parse(localStorage.getItem(LS_USERS_KEY)) || [];
-let loggedInUser = JSON.parse(localStorage.getItem(LS_LOGGED_IN_KEY));
-// Crucial update: Ensure new posts have a 'comments' array
-let posts = (JSON.parse(localStorage.getItem(LS_POSTS_KEY)) || []).map(post => ({
-    ...post,
-    comments: post.comments || [] // Ensure comments array exists
-})); 
+            loadFromStorage(key) {
+                try {
+                    return JSON.parse(localStorage.getItem(key));
+                } catch (error) {
+                    console.warn(`Error loading ${key} from storage:`, error);
+                    return null;
+                }
+            }
 
-// Get DOM elements for views
-const body = document.body;
-const authView = document.getElementById('auth-view');
-const feedView = document.getElementById('feed-view');
+            saveToStorage(key, data) {
+                try {
+                    localStorage.setItem(key, JSON.stringify(data));
+                } catch (error) {
+                    console.error(`Error saving ${key} to storage:`, error);
+                }
+            }
 
-// Auth elements
-const authTitle = document.getElementById('auth-title');
-const loginForm = document.getElementById('login-form');
-const signupForm = document.getElementById('signup-form');
-const switchToSignup = document.getElementById('switch-to-signup');
+            addUser(user) {
+                this.users.push(user);
+                this.saveToStorage(CONFIG.STORAGE_KEYS.USERS, this.users);
+            }
 
-// Feed elements
-const welcomeUserSpan = document.getElementById('welcome-user');
-const logoutBtn = document.getElementById('logout-btn');
-const createPostForm = document.getElementById('create-post-form');
-const postsFeed = document.getElementById('posts-feed');
-const searchInput = document.getElementById('search-input');
-const sortSelect = document.getElementById('sort-select');
-const clearFiltersBtn = document.getElementById('clear-filters-btn'); // NEW: Clear Filters
+            setCurrentUser(user) {
+                this.currentUser = user;
+                this.saveToStorage(CONFIG.STORAGE_KEYS.CURRENT_USER, user);
+            }
 
-// Theme Toggle
-const themeSwitch = document.getElementById('theme-switch'); // NEW: Theme Switch
+            clearCurrentUser() {
+                this.currentUser = null;
+                localStorage.removeItem(CONFIG.STORAGE_KEYS.CURRENT_USER);
+            }
 
-// Post Creator/Emoji Elements
-const postTextarea = document.getElementById('post-text');
-const postImageUrlInput = document.getElementById('post-image-url'); // FIXED: Added this variable
-const emojiOptions = document.querySelectorAll('.emoji-option');
+            addPost(post) {
+                this.posts.unshift(post);
+                this.saveToStorage(CONFIG.STORAGE_KEYS.POSTS, this.posts);
+            }
 
-// Edit Modal Elements
-const editModal = document.getElementById('edit-modal');
-const editPostForm = document.getElementById('edit-post-form');
-const editPostIdInput = document.getElementById('edit-post-id');
-const editPostTextarea = document.getElementById('edit-post-text');
-const editPostImageUrlInput = document.getElementById('edit-post-image-url');
-const closeModalBtn = document.getElementById('close-modal-btn');
+            updatePost(postId, updates) {
+                const index = this.posts.findIndex(post => post.id === postId);
+                if (index !== -1) {
+                    this.posts[index] = { ...this.posts[index], ...updates };
+                    this.saveToStorage(CONFIG.STORAGE_KEYS.POSTS, this.posts);
+                }
+            }
 
-// NEW: Comment Modal Elements
-const commentModal = document.getElementById('comment-modal');
-const commentPostContainer = document.getElementById('comment-post-container');
-const commentCountSpan = document.getElementById('comment-count');
-const addCommentForm = document.getElementById('add-comment-form');
-const commentPostIdInput = document.getElementById('comment-post-id');
-const commentTextInput = document.getElementById('comment-text-input');
-const commentsList = document.getElementById('comments-list');
-const closeCommentModalBtn = document.getElementById('close-comment-modal-btn');
+            deletePost(postId) {
+                this.posts = this.posts.filter(post => post.id !== postId);
+                this.saveToStorage(CONFIG.STORAGE_KEYS.POSTS, this.posts);
+            }
 
+            toggleLike(postId, userId) {
+                const post = this.posts.find(p => p.id === postId);
+                if (post) {
+                    const likeIndex = post.likes.indexOf(userId);
+                    if (likeIndex > -1) {
+                        post.likes.splice(likeIndex, 1);
+                    } else {
+                        post.likes.push(userId);
+                    }
+                    this.saveToStorage(CONFIG.STORAGE_KEYS.POSTS, this.posts);
+                }
+            }
 
+            addComment(postId, comment) {
+                const post = this.posts.find(p => p.id === postId);
+                if (post) {
+                    if (!post.comments) post.comments = [];
+                    post.comments.push(comment);
+                    this.saveToStorage(CONFIG.STORAGE_KEYS.POSTS, this.posts);
+                }
+            }
 
-// =================================================================
-// UTILITY FUNCTIONS 🛠️
-// =================================================================
+            setTheme(theme) {
+                this.theme = theme;
+                this.saveToStorage(CONFIG.STORAGE_KEYS.THEME, theme);
+                document.documentElement.setAttribute('data-theme', theme);
+            }
 
-/**
- * Converts a timestamp to a human-readable "time ago" string.
- * @param {number} timestamp - The post or comment timestamp.
- * @returns {string} The formatted time string.
- */
-function timeAgo(timestamp) {
-    const now = Date.now();
-    const seconds = Math.floor((now - timestamp) / 1000);
+            getFilteredPosts() {
+                let filtered = this.posts.filter(post => 
+                    post.text.toLowerCase().includes(this.filters.search.toLowerCase())
+                );
 
-    if (seconds < 60) return `${seconds} seconds ago`;
-    
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
-    
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-    
-    const days = Math.floor(hours / 24);
-    if (days < 30) return `${days} day${days > 1 ? 's' : ''} ago`;
+                filtered.sort((a, b) => {
+                    switch (this.filters.sort) {
+                        case 'latest': return b.timestamp - a.timestamp;
+                        case 'oldest': return a.timestamp - b.timestamp;
+                        case 'likes': return b.likes.length - a.likes.length;
+                        default: return 0;
+                    }
+                });
 
-    // Fallback to local date string for older posts
-    return new Date(timestamp).toLocaleDateString();
-}
-
-// =================================================================
-// THEME LOGIC 🌓
-// =================================================================
-
-/**
- * Applies the saved theme preference or defaults to light mode.
- */
-function applyTheme() {
-    const savedTheme = localStorage.getItem(LS_THEME_KEY) || 'light';
-    if (savedTheme === 'dark') {
-        body.classList.add('dark-mode');
-        themeSwitch.checked = true;
-    } else {
-        body.classList.remove('dark-mode');
-        themeSwitch.checked = false;
-    }
-}
-
-/**
- * Handles the theme switch toggle.
- */
-function handleThemeToggle() {
-    if (themeSwitch.checked) {
-        body.classList.add('dark-mode');
-        localStorage.setItem(LS_THEME_KEY, 'dark');
-    } else {
-        body.classList.remove('dark-mode');
-        localStorage.setItem(LS_THEME_KEY, 'light');
-    }
-}
-
-// =================================================================
-// 0. Authentication Flow Logic
-// =================================================================
-
-// (Auth logic remains the same as provided previously)
-
-function handleAuthSwitch(e) {
-    e.preventDefault();
-    const isLogin = loginForm.style.display !== 'none';
-    
-    loginForm.style.display = isLogin ? 'none' : 'block';
-    signupForm.style.display = isLogin ? 'block' : 'none';
-    authTitle.textContent = isLogin ? 'Sign Up' : 'Login';
-    switchToSignup.textContent = isLogin ? 'Log In' : 'Sign Up';
-}
-
-function handleSignup(e) {
-    e.preventDefault();
-    const name = document.getElementById('signup-name').value.trim();
-    const email = document.getElementById('signup-email').value.trim().toLowerCase();
-    const password = document.getElementById('signup-password').value;
-
-    if (users.find(u => u.email === email)) {
-        alert('User with this email already exists. Please log in.');
-        return;
-    }
-
-    const newUser = { id: Date.now(), name, email, password };
-    users.push(newUser);
-    localStorage.setItem(LS_USERS_KEY, JSON.stringify(users));
-    alert('Signup successful! Please log in.');
-    
-    document.getElementById('switch-to-signup').click();
-}
-
-function handleLogin(e) {
-    e.preventDefault();
-    const email = document.getElementById('login-email').value.trim().toLowerCase();
-    const password = document.getElementById('login-password').value;
-
-    const user = users.find(u => u.email === email && u.password === password);
-
-    if (user) {
-        loggedInUser = user;
-        localStorage.setItem(LS_LOGGED_IN_KEY, JSON.stringify(loggedInUser));
-        renderApp();
-    } else {
-        alert('Invalid email or password.');
-    }
-}
-
-function handleLogout() {
-    loggedInUser = null;
-    localStorage.removeItem(LS_LOGGED_IN_KEY);
-    renderApp();
-}
-
-/**
- * Switches the main view based on the login state and applies theme/initial data.
- */
-function renderApp() {
-    applyTheme(); // Apply theme on load
-
-    if (loggedInUser) {
-        // Show Feed View
-        authView.style.display = 'none';
-        feedView.style.display = 'block';
-        welcomeUserSpan.textContent = `Welcome, ${loggedInUser.name}`;
-        
-        renderPosts();
-    } else {
-        // Show Auth View
-        authView.style.display = 'flex';
-        feedView.style.display = 'none';
-        
-        loginForm.reset();
-        signupForm.reset();
-        if (signupForm.style.display !== 'none') {
-            document.getElementById('switch-to-signup').click();
+                return filtered;
+            }
         }
-    }
-}
 
+        // ===== Main App Class =====
+        class ShareToInspireApp {
+            constructor() {
+                this.state = new AppState();
+                this.elements = this.cacheDOM();
+                this.bindEvents();
+                this.init();
+            }
 
-// =================================================================
-// EMOJI FEATURE 🤩 (No Change needed here)
-// =================================================================
+            cacheDOM() {
+                return {
+                    // Views
+                    authView: document.getElementById('auth-view'),
+                    feedView: document.getElementById('feed-view'),
 
-function handleEmojiInsert(e) {
-    const emoji = e.target.dataset.emoji;
-    if (emoji) {
-        const start = postTextarea.selectionStart;
-        const end = postTextarea.selectionEnd;
-        const currentText = postTextarea.value;
+                    // Auth Elements
+                    authTabs: document.querySelectorAll('.tab-btn'),
+                    loginForm: document.getElementById('login-form'),
+                    signupForm: document.getElementById('signup-form'),
+                    loginEmail: document.getElementById('login-email'),
+                    loginPassword: document.getElementById('login-password'),
+                    signupName: document.getElementById('signup-name'),
+                    signupEmail: document.getElementById('signup-email'),
+                    signupPassword: document.getElementById('signup-password'),
 
-        postTextarea.value = currentText.substring(0, start) + emoji + currentText.substring(end);
-        
-        postTextarea.selectionStart = postTextarea.selectionEnd = start + emoji.length;
-        postTextarea.focus();
-    }
-}
+                    // Feed Elements
+                    welcomeUser: document.getElementById('welcome-user'),
+                    logoutBtn: document.getElementById('logout-btn'),
+                    createPostForm: document.getElementById('create-post-form'),
+                    postContent: document.getElementById('post-content'),
+                    postsContainer: document.getElementById('posts-container'),
+                    searchInput: document.getElementById('search-posts'),
+                    sortSelect: document.getElementById('sort-posts'),
+                    clearFilters: document.getElementById('clear-filters'),
 
+                    // Theme
+                    themeToggle: document.getElementById('theme-toggle'),
+                    footerThemeToggle: document.getElementById('footer-theme-toggle'),
 
-// =================================================================
-// 1-4. Post Features (Create, Read, Like, Delete, EDIT, COMMENT, SHARE) 📝
-// =================================================================
+                    // Modals
+                    editModal: document.getElementById('edit-modal'),
+                    commentsModal: document.getElementById('comments-modal'),
+                    logoutModal: document.getElementById('logout-modal'),
+                    editPostForm: document.getElementById('edit-post-form'),
+                    editPostId: document.getElementById('edit-post-id'),
+                    editPostContent: document.getElementById('edit-post-content'),
+                    addCommentForm: document.getElementById('add-comment-form'),
+                    commentPostId: document.getElementById('comment-post-id'),
+                    commentText: document.getElementById('comment-text'),
+                    commentsList: document.getElementById('comments-list'),
+                    commentsCount: document.getElementById('comments-count'),
+                    postPreview: document.getElementById('post-preview'),
+                    confirmLogout: document.getElementById('confirm-logout'),
+                    cancelLogout: document.getElementById('cancel-logout'),
+                    cancelEdit: document.getElementById('cancel-edit'),
 
-/**
- * Creates the HTML markup for a single post.
- */
-function createPostCardHTML(post) {
-    const timeString = timeAgo(post.timestamp); // Using utility function
-    const isLiked = post.likes.includes(loggedInUser.id);
-    const likeIconClass = isLiked ? 'fa-solid' : 'fa-regular';
-    const likeButtonClass = isLiked ? 'liked' : '';
-    const isOwner = post.userId === loggedInUser.id;
+                    // Media
+                    imageUpload: document.getElementById('image-upload'),
+                    imageUrl: document.getElementById('image-url'),
+                    imagePreview: document.getElementById('image-preview'),
 
-    const imageElement = post.imageUrl 
-        ? `<img src="${post.imageUrl}" alt="Post image" class="post-image" onerror="this.style.display='none';">`
-        : '';
+                    // Footer
+                    currentTime: document.getElementById('current-time'),
+                    scrollToTop: document.getElementById('scroll-to-top'),
+                    createPostFooter: document.getElementById('create-post-footer')
+                };
+            }
 
-    const ownerActions = isOwner ? `
-        <div class="owner-actions">
-            <button class="edit-button" data-id="${post.id}">
-                <i class="fa-solid fa-pen-to-square"></i> Edit
-            </button>
-            <button class="delete-button" data-id="${post.id}">
-                <i class="fa-solid fa-trash-can"></i> Delete
-            </button>
-        </div>
-    ` : '';
+            bindEvents() {
+                // Auth Events
+                this.elements.authTabs.forEach(tab => {
+                    tab.addEventListener('click', (e) => this.switchAuthTab(e.target));
+                });
+                this.elements.loginForm.addEventListener('submit', (e) => this.handleLogin(e));
+                this.elements.signupForm.addEventListener('submit', (e) => this.handleSignup(e));
 
-    return `
-        <div class="post-card" data-id="${post.id}">
-            <div class="post-header">
-                <span class="post-author">${post.authorName}</span>
-                <span class="post-time">${timeString}</span>
-            </div>
-            <div class="post-content">
-                <p>${post.text}</p>
-                ${imageElement}
-            </div>
-            <div class="post-actions">
-                <div class="action-buttons-group">
-                    <button class="like-button ${likeButtonClass}" data-id="${post.id}">
-                        <i class="${likeIconClass} fa-heart"></i>
-                        <span class="like-count">${post.likes.length}</span>
-                    </button>
-                    <button class="comment-button" data-id="${post.id}">
-                        <i class="fa-regular fa-comment"></i>
-                        <span class="comment-count">${post.comments ? post.comments.length : 0}</span>
-                    </button>
-                    <button class="share-button" data-id="${post.id}">
-                        <i class="fa-solid fa-share-nodes"></i> Share
-                    </button>
-                </div>
-                ${ownerActions}
-            </div>
-        </div>
-    `;
-}
+                // Input validation
+                this.elements.signupEmail.addEventListener('blur', () => this.validateEmail(this.elements.signupEmail));
+                this.elements.signupPassword.addEventListener('blur', () => this.validatePassword(this.elements.signupPassword));
+                this.elements.loginEmail.addEventListener('blur', () => this.validateEmail(this.elements.loginEmail));
+                this.elements.loginPassword.addEventListener('blur', () => this.validatePassword(this.elements.loginPassword));
 
-/**
- * Renders the filtered and sorted posts to the DOM.
- */
-function renderPosts() {
-    const searchText = searchInput.value.toLowerCase();
-    const sortBy = sortSelect.value;
+                // Post Events
+                this.elements.createPostForm.addEventListener('submit', (e) => this.handleCreatePost(e));
+                this.elements.postsContainer.addEventListener('click', (e) => this.handlePostAction(e));
+                this.elements.searchInput.addEventListener('input', () => this.handleSearch());
+                this.elements.sortSelect.addEventListener('change', () => this.handleSort());
+                this.elements.clearFilters.addEventListener('click', () => this.clearFilters());
 
-    // Search/Filter posts by text content
-    let filteredPosts = posts.filter(post => 
-        post.text.toLowerCase().includes(searchText)
-    );
+                // Theme Events
+                this.elements.themeToggle.addEventListener('change', () => this.toggleTheme());
+                this.elements.footerThemeToggle.addEventListener('change', () => this.toggleTheme());
 
-    // Sort posts
-    filteredPosts.sort((a, b) => {
-        if (sortBy === 'latest') return b.timestamp - a.timestamp; 
-        if (sortBy === 'oldest') return a.timestamp - b.timestamp; 
-        if (sortBy === 'likes') return b.likes.length - a.likes.length; 
-        return 0;
-    });
+                // Modal Events
+                this.elements.editPostForm.addEventListener('submit', (e) => this.handleEditPost(e));
+                this.elements.addCommentForm.addEventListener('submit', (e) => this.handleAddComment(e));
+                this.elements.logoutBtn.addEventListener('click', () => this.showModal('logout-modal'));
+                this.elements.confirmLogout.addEventListener('click', () => this.handleLogout());
+                this.elements.cancelLogout.addEventListener('click', () => this.hideModal('logout-modal'));
+                this.elements.cancelEdit.addEventListener('click', () => this.hideModal('edit-modal'));
 
-    // Render to DOM
-    postsFeed.innerHTML = filteredPosts.map(createPostCardHTML).join('') || `<p style="text-align: center; color: var(--light-text-color);">No posts found matching your criteria.</p>`;
-}
+                // Media Events
+                this.elements.imageUpload.addEventListener('change', (e) => this.handleImageUpload(e));
+                this.elements.imageUrl.addEventListener('input', () => this.updateImagePreview());
 
-/**
- * Handles the creation of a new post.
- */
-function handleCreatePost(e) {
+                // Footer Events
+                this.elements.scrollToTop.addEventListener('click', () => this.scrollToTop());
+                this.elements.createPostFooter.addEventListener('click', () => this.scrollToCreatePost());
+
+                // Emoji Events
+                document.querySelectorAll('.emoji').forEach(emoji => {
+                    emoji.addEventListener('click', (e) => {
+                        const emojiChar = e.target.dataset.emoji;
+                        this.insertEmoji(emojiChar);
+                    });
+                });
+
+                // Close modals on outside click
+                document.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('modal')) {
+                        this.hideModal(e.target.id);
+                    }
+                });
+
+                // Initialize
+                this.updateTime();
+                setInterval(() => this.updateTime(), 1000);
+            }
+
+            init() {
+                // Apply saved theme
+                this.state.setTheme(this.state.theme);
+                
+                // Sync theme toggles
+                this.elements.themeToggle.checked = this.state.theme === 'dark';
+                this.elements.footerThemeToggle.checked = this.state.theme === 'dark';
+
+                // Show appropriate view based on login state
+                this.renderApp();
+            }
+
+            renderApp() {
+                if (this.state.currentUser) {
+                    this.showFeedView();
+                } else {
+                    this.showAuthView();
+                }
+            }
+
+            showAuthView() {
+                this.elements.authView.classList.add('active');
+                this.elements.feedView.classList.remove('active');
+                this.clearAuthForms();
+            }
+
+            showFeedView() {
+                this.elements.authView.classList.remove('active');
+                this.elements.feedView.classList.add('active');
+                this.elements.welcomeUser.textContent = `Welcome, ${this.state.currentUser.name}!`;
+                this.renderPosts();
+            }
+
+            clearAuthForms() {
+                this.elements.loginForm.reset();
+                this.elements.signupForm.reset();
+                // Clear error states
+                document.querySelectorAll('.input-error').forEach(el => {
+                    el.classList.remove('input-error');
+                });
+                document.querySelectorAll('.error-message').forEach(el => {
+                    el.style.display = 'none';
+                });
+            }
+
+            // Validation Functions
+            validateEmail(input) {
+                const email = input.value.trim();
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                const isValid = emailRegex.test(email);
+                
+                this.toggleInputError(input, !isValid, 'Please enter a valid email address');
+                return isValid;
+            }
+
+            validatePassword(input) {
+                const password = input.value;
+                // At least 8 characters, with letters and numbers
+                const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$/;
+                const isValid = passwordRegex.test(password);
+                
+                this.toggleInputError(input, !isValid, 'Password must be at least 8 characters with letters and numbers');
+                return isValid;
+            }
+
+            toggleInputError(input, hasError, message) {
+                const errorElement = input.nextElementSibling;
+                
+                if (hasError) {
+                    input.classList.add('input-error');
+                    errorElement.textContent = message;
+                    errorElement.style.display = 'block';
+                } else {
+                    input.classList.remove('input-error');
+                    errorElement.style.display = 'none';
+                }
+            }
+
+            // Auth Handlers
+            handleLogin(e) {
+                e.preventDefault();
+                
+                // Validate inputs
+                const isEmailValid = this.validateEmail(this.elements.loginEmail);
+                const isPasswordValid = this.validatePassword(this.elements.loginPassword);
+                
+                if (!isEmailValid || !isPasswordValid) {
+                    this.showNotification('Please fix the errors in the form', 'error');
+                    return;
+                }
+
+                const email = this.elements.loginEmail.value.trim().toLowerCase();
+                const password = this.elements.loginPassword.value;
+
+                const user = this.state.users.find(u => 
+                    u.email === email && u.password === password
+                );
+
+                if (user) {
+                    this.state.setCurrentUser(user);
+                    this.showFeedView();
+                    this.showNotification('Welcome back! 🎉', 'success');
+                } else {
+                    this.showNotification('Invalid email or password', 'error');
+                }
+            }
+
+            handleSignup(e) {
+                e.preventDefault();
+                
+                // Validate inputs
+                const isEmailValid = this.validateEmail(this.elements.signupEmail);
+                const isPasswordValid = this.validatePassword(this.elements.signupPassword);
+                const name = this.elements.signupName.value.trim();
+                
+                if (!name) {
+                    this.toggleInputError(this.elements.signupName, true, 'Please enter your name');
+                    return;
+                } else {
+                    this.toggleInputError(this.elements.signupName, false, '');
+                }
+                
+                if (!isEmailValid || !isPasswordValid) {
+                    this.showNotification('Please fix the errors in the form', 'error');
+                    return;
+                }
+
+                const email = this.elements.signupEmail.value.trim().toLowerCase();
+                const password = this.elements.signupPassword.value;
+
+                if (this.state.users.find(u => u.email === email)) {
+                    this.showNotification('User with this email already exists', 'error');
+                    return;
+                }
+
+                const newUser = {
+                    id: Date.now(),
+                    name,
+                    email,
+                    password,
+                    joined: Date.now()
+                };
+
+                this.state.addUser(newUser);
+                this.state.setCurrentUser(newUser);
+                this.showFeedView();
+                this.showNotification('Account created successfully! 🎉', 'success');
+            }
+
+            handleLogout() {
+                this.state.clearCurrentUser();
+                this.hideModal('logout-modal');
+                this.showAuthView();
+                this.showNotification('See you soon! 👋', 'info');
+            }
+
+            // Post Handlers
+            handleCreatePost(e) {
     e.preventDefault();
-    // FIXED: Use the global variables for reliable access
-    const postText = postTextarea.value.trim(); 
-    const postImageUrl = postImageUrlInput.value.trim();
+    const content = this.elements.postContent.value.trim();
+    const imageUrl = this.elements.imageUrl.value.trim();
+    const imageFile = this.elements.imageUpload.files[0];
 
-    if (!postText) {
-        alert("Post content cannot be empty.");
+    if (!content) {
+        this.showNotification('Please write something to share! ✍️', 'error');
         return;
     }
 
-    const newPost = {
-        id: Date.now(),
-        userId: loggedInUser.id,
-        authorName: loggedInUser.name,
-        text: postText,
-        imageUrl: postImageUrl,
-        timestamp: Date.now(),
-        likes: [],
-        comments: [] // Initialize comments array
-    };
-
-    posts.unshift(newPost);
-    localStorage.setItem(LS_POSTS_KEY, JSON.stringify(posts));
-
-    // ✅ Reset form and clear image preview
-    createPostForm.reset();
-    postImagePreview.src = '';
-    postImagePreview.style.display = 'none';
-
-    renderPosts(); 
-}
-
-
-const postImageFileInput = document.getElementById('post-image-file');
-const postImageURLInput = document.getElementById('post-image-url');
-const postImagePreview = document.getElementById('post-image-preview');
-const cancelImageBtn = document.getElementById('cancel-image-btn');
-
-// Show preview when file selected
-postImageFileInput.addEventListener('change', () => {
-    const file = postImageFileInput.files[0];
-    if (file) {
+    // Handle image upload from file
+    if (imageFile) {
         const reader = new FileReader();
-        reader.onload = e => {
-            postImagePreview.src = e.target.result;
-            postImagePreview.style.display = 'block';
+        reader.onload = (event) => {
+            const imageDataUrl = event.target.result;
+            
+            const newPost = {
+                id: Date.now(),
+                userId: this.state.currentUser.id,
+                authorName: this.state.currentUser.name,
+                text: content,
+                imageUrl: imageDataUrl, // Use the uploaded image data URL
+                timestamp: Date.now(),
+                likes: [],
+                comments: []
+            };
+
+            this.state.addPost(newPost);
+            this.resetPostForm();
+            this.renderPosts();
+            this.showNotification('Achievement shared with image! 🎉', 'success');
         };
-        reader.readAsDataURL(file);
-    }
-});
-
-// Show preview when URL entered
-postImageURLInput.addEventListener('input', () => {
-    const url = postImageURLInput.value.trim();
-    if (url) {
-        postImagePreview.src = url;
-        postImagePreview.style.display = 'block';
-    } else if (!postImageFileInput.files[0]) {
-        postImagePreview.style.display = 'none';
-    }
-});
-
-// Cancel button clears file, URL and preview
-cancelImageBtn.addEventListener('click', () => {
-    postImageFileInput.value = '';
-    postImageURLInput.value = '';
-    postImagePreview.src = '';
-    postImagePreview.style.display = 'none';
-});
-
-
-/**
- * Handles all click events within the post feed (Like, Delete, Edit, Comment, Share).
- */
-function handlePostActions(e) {
-    const target = e.target.closest('.action-buttons-group button, .owner-actions button');
-    if (!target) return;
-
-    const postId = parseInt(target.dataset.id);
-    const postIndex = posts.findIndex(p => p.id === postId);
-
-    if (postIndex === -1) return;
-    
-    if (target.classList.contains('like-button')) {
-        handleLikeToggle(postIndex, target);
-    } else if (target.classList.contains('delete-button')) {
-        handleDeletePost(postIndex);
-    } else if (target.classList.contains('edit-button')) {
-        openEditModal(postId);
-    } else if (target.classList.contains('comment-button')) {
-        openCommentModal(postId); // NEW: Comment action
-    } else if (target.classList.contains('share-button')) {
-        handleSharePost(postId); // NEW: Share action
-    }
-}
-
-function handleLikeToggle(postIndex, button) {
-    const post = posts[postIndex];
-    const userId = loggedInUser.id;
-    const likeIndex = post.likes.indexOf(userId);
-
-    if (likeIndex > -1) {
-        post.likes.splice(likeIndex, 1);
+        reader.onerror = () => {
+            this.showNotification('Error uploading image', 'error');
+        };
+        reader.readAsDataURL(imageFile);
     } else {
-        post.likes.push(userId);
-    }
-
-    // Save and re-render the post to update counts/classes reliably
-    localStorage.setItem(LS_POSTS_KEY, JSON.stringify(posts));
-    renderPosts();
-}
-
-function handleDeletePost(postIndex) {
-    if (confirm("Are you sure you want to delete this post?")) {
-        posts.splice(postIndex, 1); 
-        localStorage.setItem(LS_POSTS_KEY, JSON.stringify(posts));
-        renderPosts();
-    }
-}
-
-/**
- * Handles the native Web Share API or falls back to clipboard copy.
- */
-function handleSharePost(postId) {
-    const post = posts.find(p => p.id === postId);
-    if (!post) return;
-
-    const postUrl = window.location.href; 
-    const shareText = `Check out this post by ${post.authorName}: "${post.text.substring(0, 50)}..."`;
-
-    if (navigator.share) {
-        navigator.share({
-            title: 'Social Media Post',
-            text: shareText,
-            url: postUrl,
-        })
-        .then(() => console.log('Successful share'))
-        .catch((error) => console.log('Error sharing', error));
-    } else {
-        // Fallback for browsers that don't support the Share API
-        navigator.clipboard.writeText(`${shareText}\n${postUrl}`).then(() => {
-            alert('Post link and summary copied to clipboard!');
-        }).catch(err => {
-            console.error('Could not copy text: ', err);
-            alert('Could not copy link.');
-        });
-    }
-}
-
-/**
- * Resets the search and sort controls and re-renders posts.
- */
-function handleClearFilters() {
-    searchInput.value = '';
-    sortSelect.value = 'latest';
-    renderPosts();
-}
-
-
-// =================================================================
-// EDIT POST LOGIC ✏️ (No Change needed here)
-// =================================================================
-
-function openEditModal(postId) {
-    const postToEdit = posts.find(p => p.id === postId);
-
-    if (postToEdit) {
-        editPostIdInput.value = postId;
-        editPostTextarea.value = postToEdit.text;
-        editPostImageUrlInput.value = postToEdit.imageUrl || '';
-        editModal.style.display = 'flex';
-    }
-}
-
-function closeEditModal() {
-    editModal.style.display = 'none';
-    editPostForm.reset();
-}
-
-function handleSaveEdit(e) {
-    e.preventDefault();
-    const postId = parseInt(editPostIdInput.value);
-    const newText = editPostTextarea.value.trim();
-    const newImageUrl = editPostImageUrlInput.value.trim();
-    
-    if (!newText) {
-        alert("Post content cannot be empty.");
-        return;
-    }
-
-    const postIndex = posts.findIndex(p => p.id === postId);
-    if (postIndex !== -1) {
-        posts[postIndex].text = newText;
-        posts[postIndex].imageUrl = newImageUrl;
-        
-        localStorage.setItem(LS_POSTS_KEY, JSON.stringify(posts));
-        closeEditModal();
-        renderPosts();
-    }
-}
-
-
-// =================================================================
-// COMMENT LOGIC 💬 (NEW FEATURE)
-// =================================================================
-
-/**
- * Creates the HTML markup for a single comment.
- */
-function createCommentHTML(comment) {
-    const time = timeAgo(comment.timestamp);
-    const authorName = users.find(u => u.id === comment.userId)?.name || 'Unknown User';
-
-    return `
-        <div class="comment-card">
-            <span class="comment-author">${authorName}</span>
-            <span class="comment-time">${time}</span>
-            <p class="comment-text">${comment.text}</p>
-        </div>
-    `;
-}
-
-/**
- * Renders all comments for a given post in the modal.
- */
-function renderComments(post) {
-    commentsList.innerHTML = post.comments.map(createCommentHTML).join('');
-    commentCountSpan.textContent = post.comments.length;
-}
-
-/**
- * Opens the comment modal for a specific post.
- */
-function openCommentModal(postId) {
-    const post = posts.find(p => p.id === postId);
-
-    if (post) {
-        // 1. Populate the post snippet
-        commentPostContainer.innerHTML = `
-            <span class="post-author">${post.authorName}</span>
-            <span class="post-time">${timeAgo(post.timestamp)}</span>
-            <p>${post.text}</p>
-        `;
-
-        // 2. Set the post ID for the form
-        commentPostIdInput.value = postId;
-
-        // 3. Render comments list
-        renderComments(post);
-
-        // 4. Show modal
-        commentModal.style.display = 'flex';
-    }
-}
-
-/**
- * Closes the comment modal.
- */
-function closeCommentModal() {
-    commentModal.style.display = 'none';
-    addCommentForm.reset();
-}
-
-/**
- * Handles adding a new comment to the current post.
- */
-function handleAddComment(e) {
-    e.preventDefault();
-    const postId = parseInt(commentPostIdInput.value);
-    const commentText = commentTextInput.value.trim();
-
-    if (!commentText) return;
-
-    const postIndex = posts.findIndex(p => p.id === postId);
-
-    if (postIndex !== -1) {
-        const newComment = {
+        // Handle URL or no image
+        const newPost = {
             id: Date.now(),
-            userId: loggedInUser.id,
-            text: commentText,
-            timestamp: Date.now()
+            userId: this.state.currentUser.id,
+            authorName: this.state.currentUser.name,
+            text: content,
+            imageUrl: imageUrl || null,
+            timestamp: Date.now(),
+            likes: [],
+            comments: []
         };
 
-        posts[postIndex].comments.push(newComment);
-        localStorage.setItem(LS_POSTS_KEY, JSON.stringify(posts));
-
-        // Re-render comments in the modal instantly
-        renderComments(posts[postIndex]);
-        // Re-render the feed to update the comment count on the post card
-        renderPosts(); 
-        
-        commentTextInput.value = ''; // Clear input
+        this.state.addPost(newPost);
+        this.resetPostForm();
+        this.renderPosts();
+        this.showNotification('Achievement shared! 🎉', 'success');
     }
 }
 
-
-// =================================================================
-// Event Listeners & Initialization
-// =================================================================
-
-// Auth Listeners
-switchToSignup.addEventListener('click', handleAuthSwitch);
-signupForm.addEventListener('submit', handleSignup);
-loginForm.addEventListener('submit', handleLogin);
-
-const logoutModal = document.getElementById("logoutModal");
-const confirmLogoutBtn = document.getElementById("confirmLogoutBtn");
-const cancelLogoutBtn = document.getElementById("cancelLogoutBtn");
-
-// Open modal when logout button is clicked
-logoutBtn.addEventListener("click", (e) => {
-    e.preventDefault(); // Prevent instant logout
-    logoutModal.style.display = "flex";
-});
-
-// Confirm logout
-confirmLogoutBtn.addEventListener("click", () => {
-    logoutModal.style.display = "none"; // <-- hide the modal
-    handleLogout();
-});
-
-// Cancel logout
-cancelLogoutBtn.addEventListener("click", () => {
-    logoutModal.style.display = "none";
-});
-
-// Close modal by clicking outside box
-logoutModal.addEventListener("click", (e) => {
-    if (e.target === logoutModal) {
-        logoutModal.style.display = "none";
-    }
-});
-
-// Grab both toggles
-const themeSwitchHeader = document.getElementById('theme-switch-header');
-const themeSwitchFooter = document.getElementById('theme-switch-footer');
-
-// Function to apply theme
-function applyTheme(isDark) {
-    if (isDark) {
-        document.body.classList.add('dark-mode');
-    } else {
-        document.body.classList.remove('dark-mode');
-    }
-    // Sync both checkboxes
-    themeSwitchHeader.checked = isDark;
-    themeSwitchFooter.checked = isDark;
-
-    // Save preference to localStorage
-    localStorage.setItem('darkMode', isDark);
+// Add this helper function to reset the form properly
+resetPostForm() {
+    this.elements.createPostForm.reset();
+    this.elements.imagePreview.style.display = 'none';
+    this.elements.imagePreview.innerHTML = '';
+    // Clear the file input
+    this.elements.imageUpload.value = '';
 }
 
-// Load saved theme on page load
-const savedTheme = localStorage.getItem('darkMode') === 'true';
-applyTheme(savedTheme);
+            handlePostAction(e) {
+                const target = e.target.closest('[data-action]');
+                if (!target) return;
 
-// Event listeners
-themeSwitchHeader.addEventListener('change', (e) => applyTheme(e.target.checked));
-themeSwitchFooter.addEventListener('change', (e) => applyTheme(e.target.checked));
+                const postId = parseInt(target.closest('.post-card').dataset.id);
+                const action = target.dataset.action;
 
+                switch (action) {
+                    case 'like':
+                        this.handleLikePost(postId, target);
+                        break;
+                    case 'comment':
+                        this.openCommentsModal(postId);
+                        break;
+                    case 'edit':
+                        this.openEditModal(postId);
+                        break;
+                    case 'delete':
+                        this.handleDeletePost(postId);
+                        break;
+                    case 'share':
+                        this.handleSharePost(postId);
+                        break;
+                }
+            }
 
-// Post Listeners
-createPostForm.addEventListener('submit', handleCreatePost);
-postsFeed.addEventListener('click', handlePostActions);
+            handleLikePost(postId, button) {
+                this.state.toggleLike(postId, this.state.currentUser.id);
+                this.renderPosts();
+                
+                // Add animation feedback
+                button.classList.add('liked');
+                setTimeout(() => {
+                    button.classList.remove('liked');
+                }, 600);
+            }
 
-// Search, Sort, and Filter Listeners
-searchInput.addEventListener('input', renderPosts);
-sortSelect.addEventListener('change', renderPosts);
-clearFiltersBtn.addEventListener('click', handleClearFilters); // NEW: Clear Filters Listener
+            handleDeletePost(postId) {
+                if (confirm('Are you sure you want to delete this post?')) {
+                    this.state.deletePost(postId);
+                    this.renderPosts();
+                    this.showNotification('Post deleted', 'info');
+                }
+            }
 
-// Emoji Picker Listeners
-emojiOptions.forEach(emoji => {
-    emoji.addEventListener('click', handleEmojiInsert);
-});
+            handleSharePost(postId) {
+                const post = this.state.posts.find(p => p.id === postId);
+                if (!post) return;
 
-// Edit Modal Listeners
-editPostForm.addEventListener('submit', handleSaveEdit);
-closeModalBtn.addEventListener('click', closeEditModal);
-editModal.addEventListener('click', (e) => {
-    if (e.target === editModal) closeEditModal();
-});
+                const shareData = {
+                    title: `Post by ${post.authorName}`,
+                    text: post.text.substring(0, 100) + '...',
+                    url: window.location.href
+                };
 
+                if (navigator.share) {
+                    navigator.share(shareData).catch(console.error);
+                } else {
+                    navigator.clipboard.writeText(shareData.text + ' ' + shareData.url);
+                    this.showNotification('Post copied to clipboard! 📋', 'success');
+                }
+            }
 
-// =========================
-// Comment Functionality
-// =========================
+            // Edit Post Handlers
+            openEditModal(postId) {
+                const post = this.state.posts.find(p => p.id === postId);
+                if (post && post.userId === this.state.currentUser.id) {
+                    this.elements.editPostId.value = postId;
+                    this.elements.editPostContent.value = post.text;
+                    this.showModal('edit-modal');
+                }
+            }
 
-// Toggle comment section visibility
-document.addEventListener("click", function (e) {
-    if (e.target.closest(".comment-button")) {
-        const postCard = e.target.closest(".post-card");
-        const commentsSection = postCard.querySelector(".comments-section");
-        commentsSection.style.display = commentsSection.style.display === "none" ? "block" : "none";
-    }
-});
+            handleEditPost(e) {
+                e.preventDefault();
+                const postId = parseInt(this.elements.editPostId.value);
+                const newText = this.elements.editPostContent.value.trim();
 
-// Add comment functionality
-document.addEventListener("submit", function (e) {
-    if (e.target.classList.contains("add-comment-form")) {
-        e.preventDefault();
+                if (!newText) {
+                    this.showNotification('Post cannot be empty', 'error');
+                    return;
+                }
 
-        const form = e.target;
-        const postCard = form.closest(".post-card");
-        const commentList = postCard.querySelector(".comments-list");
-        const input = form.querySelector(".comment-input");
+                this.state.updatePost(postId, { text: newText });
+                this.hideModal('edit-modal');
+                this.renderPosts();
+                this.showNotification('Post updated successfully! ✨', 'success');
+            }
 
-        const commentText = input.value.trim();
-        if (!commentText) return;
+            // Comment Handlers
+            openCommentsModal(postId) {
+                const post = this.state.posts.find(p => p.id === postId);
+                if (post) {
+                    this.elements.commentPostId.value = postId;
+                    this.elements.commentsCount.textContent = post.comments?.length || 0;
+                    
+                    // Render post preview
+                    this.elements.postPreview.innerHTML = this.createPostPreviewHTML(post);
+                    
+                    // Render comments
+                    this.renderComments(post);
+                    
+                    this.showModal('comments-modal');
+                }
+            }
 
-        // Create new comment element
-        const commentCard = document.createElement("div");
-        commentCard.classList.add("comment-card");
-        commentCard.innerHTML = `<span class="comment-author">You:</span> <span class="comment-text">${commentText}</span>`;
-        
-        commentList.appendChild(commentCard);
+            createPostPreviewHTML(post) {
+                return `
+                    <div class="post-preview-content">
+                        <div class="post-header">
+                            <span class="post-author">${post.authorName}</span>
+                            <span class="post-time">${this.formatTime(post.timestamp)}</span>
+                        </div>
+                        <div class="post-text">${post.text}</div>
+                    </div>
+                `;
+            }
 
-        // Clear input
-        input.value = "";
+            renderComments(post) {
+                const commentsHTML = (post.comments || [])
+                    .map(comment => this.createCommentHTML(comment))
+                    .join('');
+                
+                this.elements.commentsList.innerHTML = commentsHTML || 
+                    '<div class="no-comments">No comments yet. Be the first to comment! 💬</div>';
+            }
 
-        // Scroll to bottom
-        commentList.scrollTop = commentList.scrollHeight;
-    }
-});
+            createCommentHTML(comment) {
+                const user = this.state.users.find(u => u.id === comment.userId);
+                return `
+                    <div class="comment-card">
+                        <div class="comment-header">
+                            <span class="comment-author">${user?.name || 'Unknown User'}</span>
+                            <span class="comment-time">${this.formatTime(comment.timestamp)}</span>
+                        </div>
+                        <div class="comment-text">${comment.text}</div>
+                    </div>
+                `;
+            }
 
-// Post Modal
-const postModal = document.getElementById("post-view-modal");
-const modalImage = document.getElementById("modal-post-image");
-const modalAuthor = document.getElementById("modal-post-author");
-const modalTime = document.getElementById("modal-post-time");
-const modalText = document.getElementById("modal-post-text");
-const modalCommentsList = document.getElementById("modal-comments-list");
-const modalCommentForm = document.getElementById("modal-add-comment-form");
-const modalCommentInput = document.getElementById("modal-comment-input");
-const closePostModal = document.getElementById("close-post-modal");
+            handleAddComment(e) {
+                e.preventDefault();
+                const postId = parseInt(this.elements.commentPostId.value);
+                const text = this.elements.commentText.value.trim();
 
-document.addEventListener("click", function(e){
-    // Open modal when post image is clicked
-    if(e.target.classList.contains("post-image")){
-        const postCard = e.target.closest(".post-card");
-        const author = postCard.getAttribute("data-author");
-        const time = postCard.querySelector(".post-time").textContent;
-        const text = postCard.querySelector(".post-content p").textContent;
-        const imageSrc = e.target.src;
+                if (!text) {
+                    this.showNotification('Please write a comment', 'error');
+                    return;
+                }
 
-        modalImage.src = imageSrc;
-        modalAuthor.textContent = author;
-        modalTime.textContent = time;
-        modalText.textContent = text;
+                const newComment = {
+                    id: Date.now(),
+                    userId: this.state.currentUser.id,
+                    text,
+                    timestamp: Date.now()
+                };
 
-        // Load comments
-        modalCommentsList.innerHTML = "";
-        const comments = postCard.querySelectorAll(".comment-card");
-        comments.forEach(comment => {
-            const clone = comment.cloneNode(true);
-            modalCommentsList.appendChild(clone);
-        });
+                this.state.addComment(postId, newComment);
+                this.elements.commentText.value = '';
+                
+                // Update UI
+                const post = this.state.posts.find(p => p.id === postId);
+                this.renderComments(post);
+                this.elements.commentsCount.textContent = post.comments.length;
+                this.renderPosts(); // Update comment count in feed
+            }
 
-        postModal.style.display = "flex";
-    }
-});
+            // Filter Handlers
+            handleSearch() {
+                this.state.filters.search = this.elements.searchInput.value;
+                this.renderPosts();
+            }
 
-// Close modal
-closePostModal.addEventListener("click", () => {
-    postModal.style.display = "none";
-});
+            handleSort() {
+                this.state.filters.sort = this.elements.sortSelect.value;
+                this.renderPosts();
+            }
 
-// Close when clicking outside modal
-window.addEventListener("click", function(e){
-    if(e.target === postModal){
-        postModal.style.display = "none";
-    }
-});
+            clearFilters() {
+                this.elements.searchInput.value = '';
+                this.elements.sortSelect.value = 'latest';
+                this.state.filters.search = '';
+                this.state.filters.sort = 'latest';
+                this.renderPosts();
+                this.showNotification('Filters cleared', 'info');
+            }
 
-// Add comment in modal
-modalCommentForm.addEventListener("submit", function(e){
-    e.preventDefault();
-    const text = modalCommentInput.value.trim();
-    if(!text) return;
+            // Theme Handler
+            toggleTheme() {
+                const newTheme = this.state.theme === 'light' ? 'dark' : 'light';
+                this.state.setTheme(newTheme);
+                this.elements.themeToggle.checked = newTheme === 'dark';
+                this.elements.footerThemeToggle.checked = newTheme === 'dark';
+            }
 
-    const commentCard = document.createElement("div");
-    commentCard.classList.add("comment-card");
-    commentCard.innerHTML = `<span class="comment-author">You:</span> <span class="comment-text">${text}</span>`;
-
-    modalCommentsList.appendChild(commentCard);
-    modalCommentInput.value = "";
-});
-
-// ------------------- Footer JS -------------------
-
-// Show current time in footer
-function updateFooterTime() {
-    const now = new Date();
-    const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    document.getElementById('footer-time').textContent = timeString;
-}
-setInterval(updateFooterTime, 1000);
-updateFooterTime(); // initial call
-// Latest Post Button
-const footerLatestPostBtn = document.getElementById('footer-latest-post');
-footerLatestPostBtn.addEventListener('click', () => {
-    const postsFeed = document.getElementById('posts-feed');
-    const lastPost = postsFeed.lastElementChild;
-    if (lastPost) {
-        lastPost.scrollIntoView({ behavior: 'smooth' });
-        lastPost.classList.add('highlight-post');
-        setTimeout(() => lastPost.classList.remove('highlight-post'), 2000);
-    }
-});
-
-// Create Post Button
-document.getElementById('footer-create-post').addEventListener('click', () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    document.getElementById('post-text').focus();
-});
-
-// Sort Posts from Footer
-document.getElementById('footer-sort-select').addEventListener('change', (e) => {
-    const sortValue = e.target.value;
-    document.getElementById('sort-select').value = sortValue; // sync with main sort
-    document.getElementById('sort-select').dispatchEvent(new Event('change')); // trigger existing sort logic
-});
-
-function handleCreatePost(e) {
-    e.preventDefault();
-
-    const postText = postTextarea.value.trim(); 
-    const postImageUrl = postImageUrlInput.value.trim(); 
-    const postImageFile = document.getElementById('post-image-file').files[0];
-
-    if (!postText) {
-        alert("Post content cannot be empty.");
-        return;
-    }
-
-    // Handle file upload
-    if (postImageFile) {
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            const newPost = createPostObject(postText, event.target.result);
-            addPost(newPost);
-        };
-        reader.readAsDataURL(postImageFile);
-    } else {
-        // Use URL or empty string
-        const newPost = createPostObject(postText, postImageUrl);
-        addPost(newPost);
-    }
-
-    createPostForm.reset();
-}
-
-// Helper function to create post object
-function createPostObject(text, imageUrl) {
-    return {
-        id: Date.now(),
-        userId: loggedInUser.id,
-        authorName: loggedInUser.name,
-        text: text,
-        imageUrl: imageUrl || '',
-        timestamp: Date.now(),
-        likes: [],
-        comments: []
-    };
-}
-
-// Helper function to add post to feed
-function addPost(post) {
-    posts.unshift(post);
-    localStorage.setItem(LS_POSTS_KEY, JSON.stringify(posts));
-    renderPosts();
-}
-
-// Show preview when file or URL is added
-postImageUrlInput.addEventListener('input', () => {
-    const url = postImageUrlInput.value.trim();
-    const preview = document.getElementById('post-image-preview');
-    if (url) {
-        preview.src = url;
-        preview.style.display = 'block';
-    } else {
-        preview.style.display = 'none';
-    }
-});
-
-document.getElementById('post-image-file').addEventListener('change', (e) => {
+            // Media Handlers
+            handleImageUpload(e) {
     const file = e.target.files[0];
-    const preview = document.getElementById('post-image-preview');
     if (file) {
+        // Check if file is an image
+        if (!file.type.match('image.*')) {
+            this.showNotification('Please select an image file', 'error');
+            this.elements.imageUpload.value = ''; // Clear the input
+            return;
+        }
+
+        // Check file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            this.showNotification('Image size should be less than 5MB', 'error');
+            this.elements.imageUpload.value = ''; // Clear the input
+            return;
+        }
+
         const reader = new FileReader();
-        reader.onload = function(event) {
-            preview.src = event.target.result;
-            preview.style.display = 'block';
+        reader.onload = (event) => {
+            this.elements.imagePreview.innerHTML = 
+                `<img src="${event.target.result}" alt="Preview" class="preview-image">`;
+            this.elements.imagePreview.style.display = 'block';
+            
+            // Clear URL input when file is selected
+            this.elements.imageUrl.value = '';
+        };
+        reader.onerror = () => {
+            this.showNotification('Error loading image', 'error');
         };
         reader.readAsDataURL(file);
     } else {
-        preview.style.display = 'none';
+        // Hide preview if no file selected
+        this.elements.imagePreview.style.display = 'none';
+        this.elements.imagePreview.innerHTML = '';
     }
-});
+}
 
-// NEW: Comment Modal Listeners
-addCommentForm.addEventListener('submit', handleAddComment);
-closeCommentModalBtn.addEventListener('click', closeCommentModal);
-commentModal.addEventListener('click', (e) => {
-    if (e.target === commentModal) closeCommentModal();
-});
+            updateImagePreview() {
+                const url = this.elements.imageUrl.value.trim();
+                if (url) {
+                    this.elements.imagePreview.innerHTML = 
+                        `<img src="${url}" alt="Preview" onerror="this.style.display='none'">`;
+                    this.elements.imagePreview.style.display = 'block';
+                } else if (!this.elements.imageUpload.files[0]) {
+                    this.elements.imagePreview.style.display = 'none';
+                }
+            }
 
+            // Render Methods
+            renderPosts() {
+                const filteredPosts = this.state.getFilteredPosts();
+                
+                if (filteredPosts.length === 0) {
+                    this.elements.postsContainer.innerHTML = `
+                        <div class="card no-posts">
+                            <div class="no-posts-content">
+                                <i class="fas fa-inbox"></i>
+                                <h3>No posts found</h3>
+                                <p>${this.state.filters.search ? 'Try adjusting your search terms' : 'Be the first to share an achievement! 🎉'}</p>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
 
-// Initial App Load
-renderApp();
+                this.elements.postsContainer.innerHTML = filteredPosts
+                    .map(post => this.createPostHTML(post))
+                    .join('');
+            }
+
+            createPostHTML(post) {
+                const isLiked = post.likes.includes(this.state.currentUser.id);
+                const isOwner = post.userId === this.state.currentUser.id;
+                const likeIcon = isLiked ? 'fas' : 'far';
+                const likeClass = isLiked ? 'liked' : '';
+
+                return `
+                    <div class="post-card card" data-id="${post.id}">
+                        <div class="post-header">
+                            <span class="post-author">${post.authorName}</span>
+                            <span class="post-time">${this.formatTime(post.timestamp)}</span>
+                        </div>
+                        
+                        <div class="post-content">
+                            <div class="post-text">${post.text}</div>
+                            ${post.imageUrl ? `
+                                <img src="${post.imageUrl}" alt="Post image" class="post-image" 
+                                     onerror="this.style.display='none'">
+                            ` : ''}
+                        </div>
+                        
+                        <div class="post-actions">
+                            <div class="action-buttons">
+                                <button class="action-btn ${likeClass}" data-action="like">
+                                    <i class="${likeIcon} fa-heart"></i>
+                                    <span>${post.likes.length}</span>
+                                </button>
+                                <button class="action-btn" data-action="comment">
+                                    <i class="far fa-comment"></i>
+                                    <span>${post.comments?.length || 0}</span>
+                                </button>
+                                <button class="action-btn" data-action="share">
+                                    <i class="fas fa-share"></i>
+                                    <span>Share</span>
+                                </button>
+                            </div>
+                            
+                            ${isOwner ? `
+                                <div class="owner-actions">
+                                    <button class="btn btn-outline btn-sm" data-action="edit">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-outline btn-sm" data-action="delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Utility Methods
+            formatTime(timestamp) {
+                const now = Date.now();
+                const diff = now - timestamp;
+                const minutes = Math.floor(diff / 60000);
+                const hours = Math.floor(diff / 3600000);
+                const days = Math.floor(diff / 86400000);
+
+                if (days > 7) {
+                    return new Date(timestamp).toLocaleDateString();
+                } else if (days > 0) {
+                    return `${days}d ago`;
+                } else if (hours > 0) {
+                    return `${hours}h ago`;
+                } else if (minutes > 0) {
+                    return `${minutes}m ago`;
+                } else {
+                    return 'Just now';
+                }
+            }
+
+            showNotification(message, type = 'info') {
+                // Remove existing notification
+                const existingNotification = document.querySelector('.notification');
+                if (existingNotification) {
+                    existingNotification.remove();
+                }
+
+                const notification = document.createElement('div');
+                notification.className = `notification notification-${type}`;
+                notification.innerHTML = `
+                    <div class="notification-content">
+                        <span>${message}</span>
+                    </div>
+                `;
+
+                document.body.appendChild(notification);
+
+                // Animate in
+                setTimeout(() => {
+                    notification.style.transform = 'translateX(0)';
+                    notification.style.opacity = '1';
+                }, 100);
+
+                // Auto remove after 3 seconds
+                setTimeout(() => {
+                    notification.style.transform = 'translateX(400px)';
+                    notification.style.opacity = '0';
+                    setTimeout(() => notification.remove(), 300);
+                }, 3000);
+            }
+
+            switchAuthTab(clickedTab) {
+                this.elements.authTabs.forEach(tab => tab.classList.remove('active'));
+                clickedTab.classList.add('active');
+
+                const isLogin = clickedTab.dataset.tab === 'login';
+                this.elements.loginForm.classList.toggle('active', isLogin);
+                this.elements.signupForm.classList.toggle('active', !isLogin);
+            }
+
+            showModal(modalId) {
+                const modal = document.getElementById(modalId);
+                modal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+
+            hideModal(modalId) {
+                const modal = document.getElementById(modalId);
+                modal.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+
+            insertEmoji(emoji) {
+                const textarea = this.elements.postContent;
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                const text = textarea.value;
+                
+                textarea.value = text.substring(0, start) + emoji + text.substring(end);
+                textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+                textarea.focus();
+                
+                // Add animation feedback
+                textarea.style.transform = 'scale(1.02)';
+                setTimeout(() => {
+                    textarea.style.transform = 'scale(1)';
+                }, 200);
+            }
+
+            updateTime() {
+                const now = new Date();
+                this.elements.currentTime.textContent = now.toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+            }
+
+            scrollToTop() {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            scrollToCreatePost() {
+                const postSection = document.querySelector('.create-post-section');
+                postSection.scrollIntoView({ behavior: 'smooth' });
+                this.elements.postContent.focus();
+            }
+        }
+
+        // ===== Initialize App =====
+        document.addEventListener('DOMContentLoaded', () => {
+            new ShareToInspireApp();
+        });
